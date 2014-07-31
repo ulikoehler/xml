@@ -78,6 +78,8 @@ module Text.XML.Stream.Parse
     , ignoreTagName
     , ignoreAnyTagName
     , ignoreTree
+    , ignoreTreeName
+    , ignoreAllTrees
       -- * Attribute parsing
     , AttrParser
     , requireAttr
@@ -90,6 +92,7 @@ module Text.XML.Stream.Parse
     , choose
     , many
     , manyIgnore
+    , many'
     , force
       -- * Exceptions
     , XmlException (..)
@@ -856,6 +859,14 @@ manyIgnore i ignored =
     -- onFail is called if the main parser fails
     onFail front =
         ignored >>= maybe (return $ front []) (const $ go front)
+
+
+-- | Like 'many', but ignores entire subtrees if they don't match
+--   the parser.
+many' :: MonadThrow m
+     => Consumer Event m (Maybe a)
+     -> Consumer Event m [a]
+many' i = manyIgnore i ignoreAllTrees
 
 type DecodeEntities = Text -> Content
 
