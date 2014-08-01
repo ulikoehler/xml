@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-import           Control.Exception            (Exception)
+import           Control.Exception            (Exception, SomeException, try, evaluate)
 import           Control.Monad.IO.Class       (liftIO)
 import           Data.Typeable                (Typeable)
 import           Data.XML.Types
@@ -42,6 +42,7 @@ main = hspec $ do
         it "has working many function" testMany
         it "has working many' function" testMany'
         it "has working manyYield function" testManyYield
+        it "has working testIgnoreTag function" testIgnoreTag
         it "has working orE" testOrE
         it "is idempotent to parse and pretty render a document" documentParsePrettyRender
         it "ignores the BOM" parseIgnoreBOM
@@ -208,6 +209,30 @@ testMany = C.runResourceT $ P.parseLBS def input C.$$ do
         , "<success/>"
         , "</hello>"
         ]
+
+testIgnoreTag :: Assertion
+testIgnoreTag = do
+    -- Test if ignoreTag properly fails if nonempty tags are encountered
+    res <- trySome do
+        assertFailure "Ignore tag should throw any exception for nonempty tags"
+        void $ C.runResourceT $ P.parseLBS def input C.$$
+            P.force "need hello" $ parseHello
+    -- Force evaluation of the try block
+    void $ evaluate $! res
+  where
+    trySome = try :: IO a -> IO (Either SomeException a)
+    parseHello = P.tagNoAttr "hello" $ P.many $ P.ignoreAllTags
+    input = L.concat
+        [ "<?xml version='1.0'?>"
+        , "<!DOCTYPE foo []>\n"
+        , "<hello>"
+        , "<success/>"
+        -- This nonempty tag should cause ignoreTag to throw an exception
+        --, "<success>foobar<bar></bar></success>"
+        , "<success/>"
+        , "</hello>"
+        ]
+
 
 testMany' :: Assertion
 testMany' = C.runResourceT $ P.parseLBS def input C.$$ do
